@@ -20,14 +20,11 @@ productRouter.post('/', async (req: Request, res: Response) => {
     const listErrors: Errors[] = [];
     const listProduct: iRowProducts[] = req.body.listProduct;
 
-    listProduct.map(async (product) => {
-        const errors = await getValidationErrors(product);
+    const errors = await getValidationErrors(listProduct);
 
-        if (!product.code || !product.costPrice || !product.description || !product.salesPrice) {
-            console.log("Um ou mais campos estão imcorretos!")
-            return;
-        }
-        if (errors.length <= 0) {
+    if (errors.length <= 0) {
+        await Promise.all(listProduct.map(async (product) => {
+
             const productFind = await ProductsModel.findOne({ where: { code: product.code } });
 
             if (!productFind) {
@@ -43,13 +40,20 @@ productRouter.post('/', async (req: Request, res: Response) => {
                     sales_price: product.salesPrice
                 });
             }
-        } else {
-            console.log(errors)
-            errors.map((e) => { listErrors.push(e) });
-        }
-    });
+        }));
+    } else {
+        await Promise.all(errors.map((e) => {
+            listErrors.push(e);
+        }));
+    }
 
     return res.status(201).json({ status: listErrors });
+});
+
+productRouter.get('/all', async (req: Request, res: Response) => {
+    const productFind = await ProductsModel.findAll();
+
+    return res.status(202).json(productFind);
 });
 
 productRouter.get('/', async (req: Request, res: Response) => {

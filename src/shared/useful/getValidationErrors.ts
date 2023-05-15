@@ -12,27 +12,44 @@ interface iRowProducts {
     salesPrice: string,
 }
 
-export default async function getValidationErrors(product: iRowProducts): Promise<Errors[]> {
-    const validationErrors: Errors[] = [];
+export default async function getValidationErrors(product: iRowProducts[]): Promise<Errors[]> {
+    var validationErrors: Errors[] = [];
 
-    const Error = [];
-    if (parseFloat(product.salesPrice) < parseFloat(product.costPrice))
-        Error.push("O preço de venda não pode ser menor que o de custo (Financeiro)");
+    await Promise.all(product.map(async (p) => {
+        const Error = [];
 
-    const productFind = await ProductsModel.findOne({ where: { code: product.code } });
+            if (!p.code || !p.costPrice || !p.description || !p.salesPrice) {
+                console.log("Um ou mais campos estão imcorretos!")
+                Error.push("Um ou mais campos estão imcorretos!");
+            }
 
-    const currentPrice = productFind ? productFind.sales_price : 0;
-    
-    var discount = (currentPrice - parseFloat(product.salesPrice)) / currentPrice * 100;
-    discount = discount < 0 ? (discount * -1) : discount;
-    if (discount !== 0 && (discount > 10.5 || discount < 9.8))
-        Error.push("o Reajuste não pode ser maior ou menor que 10% (Marketing)");
+            if (!parseFloat(p.salesPrice))
+                Error.push("Preço de custo não preenchido");
 
-    if (Error.length > 0)
-        validationErrors.push({
-            product: product.code,
-            Error: Error
-        });
+            if (!parseFloat(p.salesPrice))
+                Error.push("Preço de venda não preenchido");
 
+            if (parseFloat(p.salesPrice) < parseFloat(p.costPrice))
+                Error.push("O preço de venda não pode ser menor que o de custo (Financeiro)");
+
+            const productFind = await ProductsModel.findOne({ where: { code: p.code } });
+            const currentPrice = productFind ? productFind.sales_price : 0;
+
+            var discount = (currentPrice - parseFloat(p.salesPrice)) / currentPrice * 100;
+            discount = discount < 0 ? (discount * -1) : discount;
+
+            if (discount !== 0 && (discount > 10.5 || discount < 9.8))
+                Error.push("O Reajuste não pode ser maior ou menor que 10% (Marketing)");
+
+        if (Error.length > 0) {
+            validationErrors.push({
+                product: p.code,
+                Error: Error
+            });
+        }
+    }));
+
+    console.log("Errors: " + validationErrors.length)
     return validationErrors;
+
 }
